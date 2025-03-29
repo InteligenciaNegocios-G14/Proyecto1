@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import ResultCard from '@/components/ResultCard';
+import RetrainModel from '@/components/RetrainModel';
 
 export default function Home() {
   const [titulo, setTitulo] = useState('');
@@ -64,7 +65,7 @@ export default function Home() {
             {isLoading ? 'Analizando...' : 'Predecir'}
           </button>
         </form>
-
+        <RetrainModel />
         {resultado && <ResultCard resultado={resultado} />}
       </div>
     </main>

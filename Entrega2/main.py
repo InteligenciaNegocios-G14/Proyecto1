@@ -1,5 +1,6 @@
 from typing import Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import joblib
 import importlib
@@ -15,6 +16,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 
 app = FastAPI()
+
+# Configuración CORS actualizada
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # URL de tu frontend Next.js
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite todos los métodos (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],  # Permite todos los headers
+)
 
 @app.get("/")
 def read_root():
@@ -59,22 +69,28 @@ class RetrainInput(BaseModel):
 @app.post("/reentrenar/")
 def reentrenar(datos: RetrainInput):
     try:
-        # 1. Cargar datos originales (asumiendo que están en './data/fake_news_spanish.csv')
+        # 1. Cargar datos originales
         data_original = pd.read_csv("./data/fake_news_spanish.csv", sep=';', encoding='utf-8')
         
-        # 2. Convertir nuevos datos (recibidos por API) a DataFrame
+        # 2. Convertir nuevos datos y asegurar que Label sea numérico
         nuevos_datos = pd.DataFrame(datos.data)
+        nuevos_datos['Label'] = pd.to_numeric(nuevos_datos['Label'], errors='coerce')  # Conversión a numérico
         
-        # 3. Combinar ambos conjuntos
+        # 3. Eliminar filas con Label inválido (NaN después de la conversión)
+        nuevos_datos = nuevos_datos.dropna(subset=['Label'])
+        
+        # 4. Combinar ambos conjuntos
         datos_combinados = pd.concat([data_original, nuevos_datos], ignore_index=True)
         
-        # 4. Verificar columnas requeridas
+        # 5. Verificar columnas y tipos
         if not {'Titulo', 'Descripcion', 'Label'}.issubset(datos_combinados.columns):
             raise HTTPException(
                 status_code=400,
                 detail="Las columnas requeridas son: 'Titulo', 'Descripcion', 'Label'"
             )
         
+        # 6. Asegurar que Label sea int (0 o 1)
+        datos_combinados['Label'] = datos_combinados['Label'].astype(int)
         # 5. Preprocesar (usando el mismo pipeline)
         datos_preprocesados = pipeline['preprocessor'].transform(datos_combinados)
         
