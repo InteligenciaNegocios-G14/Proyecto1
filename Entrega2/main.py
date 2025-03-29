@@ -72,27 +72,26 @@ def reentrenar(datos: RetrainInput):
         # 1. Cargar datos originales
         data_original = pd.read_csv("./data/fake_news_spanish.csv", sep=';', encoding='utf-8')
         
-        # 2. Convertir nuevos datos y asegurar que Label sea numérico
+        # 2. Procesar nuevos datos
         nuevos_datos = pd.DataFrame(datos.data)
-        nuevos_datos['Label'] = pd.to_numeric(nuevos_datos['Label'], errors='coerce')  # Conversión a numérico
+        nuevos_datos['Label'] = pd.to_numeric(nuevos_datos['Label'], errors='coerce')
+        nuevos_datos = nuevos_datos.dropna(subset=['Label'])
+        nuevos_datos['Label'] = nuevos_datos['Label'].astype(int)
         
         # 3. Eliminar filas con Label inválido (NaN después de la conversión)
         nuevos_datos = nuevos_datos.dropna(subset=['Label'])
         
-        # 4. Combinar ambos conjuntos
-        datos_combinados = pd.concat([data_original, nuevos_datos], ignore_index=True)
-        
         # 5. Verificar columnas y tipos
-        if not {'Titulo', 'Descripcion', 'Label'}.issubset(datos_combinados.columns):
+        if not {'Titulo', 'Descripcion', 'Label'}.issubset(nuevos_datos.columns):
             raise HTTPException(
                 status_code=400,
                 detail="Las columnas requeridas son: 'Titulo', 'Descripcion', 'Label'"
             )
         
         # 6. Asegurar que Label sea int (0 o 1)
-        datos_combinados['Label'] = datos_combinados['Label'].astype(int)
+        nuevos_datos['Label'] = nuevos_datos['Label'].astype(int)
         # 5. Preprocesar (usando el mismo pipeline)
-        datos_preprocesados = pipeline['preprocessor'].transform(datos_combinados)
+        datos_preprocesados = pipeline['preprocessor'].transform(nuevos_datos)
         
         # 6. Dividir datos (stratify para mantener balance de clases)
         X_train, X_test, Y_train, Y_test = train_test_split(
@@ -125,7 +124,7 @@ def reentrenar(datos: RetrainInput):
         
         return {
             "mensaje": "Modelo reentrenado con datos originales + nuevos",
-            "muestras_totales": len(datos_combinados),
+            "muestras_totales": len(nuevos_datos),
             "metricas": metricas
         }
         
